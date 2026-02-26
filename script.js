@@ -1,12 +1,50 @@
-// Seleccionamos los elementos de nuestra página
 const btnEscuchar = document.getElementById('btn-escuchar');
 const status = document.getElementById('status');
 const rostro = document.getElementById('rostro');
 
-// Esta función envía el texto a nuestro "mensajero" (la función serverless)
+// 1. Configuración de la Voz (Oído)
+const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+recognition.lang = 'es-MX'; // Idioma español de México
+recognition.interimResults = false;
+
+// 2. Configuración de la Voz (Hablar)
+const synth = window.speechSynthesis;
+
+// Función para que la IA hable
+function hablar(texto) {
+    const utterance = new SpeechSynthesisUtterance(texto);
+    utterance.lang = 'es-MX';
+    
+    // Animación: Abrir la boca mientras habla
+    utterance.onstart = () => { rostro.innerText = "😮"; };
+    utterance.onend = () => { rostro.innerText = "😊"; };
+    
+    synth.speak(utterance);
+}
+
+// 3. Lógica al presionar el botón
+btnEscuchar.addEventListener('click', () => {
+    recognition.start();
+    status.innerText = "Escuchando...";
+    rostro.innerText = "👂";
+});
+
+// Cuando el navegador termina de escuchar
+recognition.onresult = async (event) => {
+    const textoEscuchado = event.results[0][0].transcript;
+    status.innerText = "Dijiste: " + textoEscuchado;
+    
+    // Enviamos lo que escuchamos a Gemini
+    const respuestaIA = await preguntarAGemini(textoEscuchado);
+    
+    // Hacemos que la IA hable la respuesta
+    hablar(respuestaIA);
+};
+
+// Función de conexión con Gemini (la que ya tenías)
 async function preguntarAGemini(textoUsuario) {
     status.innerText = "Pensando...";
-    rostro.innerText = "🤔"; // Cambia el emoji mientras piensa
+    rostro.innerText = "🤔";
 
     try {
         const respuesta = await fetch('/api/chat', {
@@ -16,22 +54,11 @@ async function preguntarAGemini(textoUsuario) {
         });
 
         const datos = await respuesta.json();
-        
-        status.innerText = "Gemini respondió.";
-        rostro.innerText = "😊"; // Vuelve a estar feliz
-        
-        console.log("Respuesta de la IA:", datos.reply);
-        alert("La IA dice: " + datos.reply); // Una alerta simple para probar
+        return datos.reply;
 
     } catch (error) {
-        console.error("Error:", error);
-        status.innerText = "Error al conectar.";
+        status.innerText = "Error de conexión.";
         rostro.innerText = "😵";
+        return "Lo siento, tuve un problema al conectar con mi cerebro digital.";
     }
 }
-
-// Probamos con un clic (antes de configurar la voz)
-btnEscuchar.addEventListener('click', () => {
-    const preguntaMock = "Hola, ¿de qué trata la carrera de IA?";
-    preguntarAGemini(preguntaMock);
-});
