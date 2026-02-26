@@ -1,0 +1,13 @@
+body {
+    background-color: #f4f4f4;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: sans-serif;
+}
+#rostro {
+    font-size: 100px;
+    margin: 20px;
+    transition: transform 0.2s; /* Para que luego se mueva */
+}
