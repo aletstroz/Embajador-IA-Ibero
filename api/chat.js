@@ -1,5 +1,5 @@
 export default async function handler(request, response) {
-  // Verificamos que sea un método POST
+  // Solo permitimos peticiones POST
   if (request.method !== 'POST') {
     return response.status(405).json({ error: 'Método no permitido' });
   }
@@ -8,16 +8,19 @@ export default async function handler(request, response) {
     const { prompt } = request.body;
     const apiKey = process.env.GEMINI_API_KEY;
 
+    // Validación de seguridad: Si falta la llave, avisamos de inmediato
     if (!apiKey) {
-      return response.status(500).json({ reply: "Error: No configuraste la API Key en Vercel." });
+      return response.status(500).json({ reply: "Error: No se encontró la API Key en la configuración de Vercel." });
     }
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-    // Estructura simplificada para asegurar compatibilidad
+    // Estructura optimizada para Gemini 1.5 Flash
     const payload = {
       contents: [{
-        parts: [{ text: `Instrucción: Actúa como el coordinador de IA de la Ibero. Pregunta del usuario: ${prompt}` }]
+        parts: [{ 
+          text: `Instrucción de sistema: Eres el coordinador de la carrera de IA en la Universidad Iberoamericana. Eres innovador, amable y experto. Pregunta del usuario: ${prompt}` 
+        }]
       }]
     };
 
@@ -29,16 +32,17 @@ export default async function handler(request, response) {
 
     const data = await apiResponse.json();
 
+    // Verificamos si la respuesta de Google tiene el formato esperado
     if (data.candidates && data.candidates[0].content.parts[0].text) {
       const textoRespuesta = data.candidates[0].content.parts[0].text;
       return response.status(200).json({ reply: textoRespuesta });
     } else {
-      // Si Gemini responde algo raro, lo capturamos aquí
-      return response.status(500).json({ reply: "Gemini recibió el mensaje pero no pudo generar una respuesta clara." });
+      console.error("Respuesta fallida de Gemini:", data);
+      return response.status(500).json({ reply: "Gemini no pudo procesar la respuesta. Revisa el formato del prompt." });
     }
 
   } catch (error) {
-    // Si el servidor falla, enviamos un mensaje de texto para que la página no se quede "Pensando"
-    return response.status(500).json({ reply: "Tuve un error interno en mi servidor. Revisa los logs de Vercel." });
+    console.error("Error en el servidor local:", error);
+    return response.status(500).json({ reply: "Hubo un error interno en el servidor (api/chat.js)." });
   }
 }
