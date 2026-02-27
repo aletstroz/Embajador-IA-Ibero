@@ -2,46 +2,52 @@ const btnEscuchar = document.getElementById('btn-escuchar');
 const status = document.getElementById('status');
 const rostro = document.getElementById('rostro');
 
-// 1. Configuración de la Voz (Oído)
+// CONFIGURACIÓN DE VOZ (Reconocimiento)
 const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-recognition.lang = 'es-MX'; // Idioma español de México
+recognition.lang = 'es-MX';
 recognition.interimResults = false;
 
-// 2. Configuración de la Voz (Hablar)
+// CONFIGURACIÓN DE VOZ (Salida/Habla)
 const synth = window.speechSynthesis;
 
-// Función para que la IA hable
 function hablar(texto) {
+    // Cancelamos cualquier audio previo para evitar que se encimen
+    synth.cancel();
+    
     const utterance = new SpeechSynthesisUtterance(texto);
     utterance.lang = 'es-MX';
     
-    // Animación: Abrir la boca mientras habla
+    // Animación básica del rostro al hablar
     utterance.onstart = () => { rostro.innerText = "😮"; };
     utterance.onend = () => { rostro.innerText = "😊"; };
     
     synth.speak(utterance);
 }
 
-// 3. Lógica al presionar el botón
+// LÓGICA DEL BOTÓN
 btnEscuchar.addEventListener('click', () => {
-    recognition.start();
-    status.innerText = "Escuchando...";
-    rostro.innerText = "👂";
+    try {
+        recognition.start();
+        status.innerText = "Te escucho...";
+        rostro.innerText = "👂";
+    } catch (e) {
+        console.log("El reconocimiento ya estaba activo.");
+    }
 });
 
-// Cuando el navegador termina de escuchar
+// PROCESAMIENTO AL TERMINAR DE ESCUCHAR
 recognition.onresult = async (event) => {
     const textoEscuchado = event.results[0][0].transcript;
     status.innerText = "Dijiste: " + textoEscuchado;
     
-    // Enviamos lo que escuchamos a Gemini
+    // Llamada a la IA
     const respuestaIA = await preguntarAGemini(textoEscuchado);
     
-    // Hacemos que la IA hable la respuesta
+    // Hablar la respuesta
     hablar(respuestaIA);
 };
 
-// Función de conexión con Gemini (la que ya tenías)
+// FUNCIÓN DE CONEXIÓN CON TU SERVIDOR (API)
 async function preguntarAGemini(textoUsuario) {
     status.innerText = "Pensando...";
     rostro.innerText = "🤔";
@@ -53,12 +59,17 @@ async function preguntarAGemini(textoUsuario) {
             body: JSON.stringify({ prompt: textoUsuario })
         });
 
+        if (!respuesta.ok) {
+            throw new Error('Error en el servidor');
+        }
+
         const datos = await respuesta.json();
         return datos.reply;
 
     } catch (error) {
+        console.error("Error detallado:", error);
         status.innerText = "Error de conexión.";
         rostro.innerText = "😵";
-        return "Lo siento, tuve un problema al conectar con mi cerebro digital.";
+        return "Lo siento, parece que mi conexión al servidor falló.";
     }
 }
