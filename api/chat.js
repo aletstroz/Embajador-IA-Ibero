@@ -1,21 +1,26 @@
 export default async function handler(request, response) {
-  // 1. Extraemos lo que el usuario escribió
-  const { prompt } = request.body;
-
-  // 2. Aquí es donde llamamos a Gemini usando tu clave secreta (que guardaremos en Vercel)
-  const apiKey = process.env.GEMINI_API_KEY; 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
-  const payload = {
-    contents: [{
-      parts: [{ text: prompt }]
-    }],
-    system_instruction: {
-      parts: [{ text: "Eres el coordinador de la carrera de IA en la Ibero. Eres amable, innovador y experto en tecnología." }]
-    }
-  };
+  // Verificamos que sea un método POST
+  if (request.method !== 'POST') {
+    return response.status(405).json({ error: 'Método no permitido' });
+  }
 
   try {
+    const { prompt } = request.body;
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      return response.status(500).json({ reply: "Error: No configuraste la API Key en Vercel." });
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+    // Estructura simplificada para asegurar compatibilidad
+    const payload = {
+      contents: [{
+        parts: [{ text: `Instrucción: Actúa como el coordinador de IA de la Ibero. Pregunta del usuario: ${prompt}` }]
+      }]
+    };
+
     const apiResponse = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -23,11 +28,17 @@ export default async function handler(request, response) {
     });
 
     const data = await apiResponse.json();
-    // 3. Devolvemos solo el texto de la respuesta a tu página web
-    const textoRespuesta = data.candidates[0].content.parts[0].text;
-    response.status(200).json({ reply: textoRespuesta });
+
+    if (data.candidates && data.candidates[0].content.parts[0].text) {
+      const textoRespuesta = data.candidates[0].content.parts[0].text;
+      return response.status(200).json({ reply: textoRespuesta });
+    } else {
+      // Si Gemini responde algo raro, lo capturamos aquí
+      return response.status(500).json({ reply: "Gemini recibió el mensaje pero no pudo generar una respuesta clara." });
+    }
 
   } catch (error) {
-    response.status(500).json({ error: "Error al conectar con Gemini" });
+    // Si el servidor falla, enviamos un mensaje de texto para que la página no se quede "Pensando"
+    return response.status(500).json({ reply: "Tuve un error interno en mi servidor. Revisa los logs de Vercel." });
   }
 }
